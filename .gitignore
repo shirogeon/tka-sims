@@ -8,3 +8,9 @@ Desktop.ini
 *.log
 *.tmp
 database/*.sqlite-journal
+database/active_lock.json
+database/TOKEN_PENGAWAS.txt
+
+# Agent & AI Skills (Hidden from Git)
+.agents/
+AGENTS.md
