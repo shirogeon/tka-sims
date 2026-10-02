@@ -2,6 +2,10 @@
 // database/seed_soal.php - Seeder Bank Soal Lengkap Standar Pusmendik & SMK Kejuruan
 
 function seedPusmendikData(PDO $pdo) {
+    // Panggil seeder seluruh mapel SMA & SMK
+    require_once __DIR__ . '/seed_all_mapel.php';
+    seedAllMapel($pdo);
+
     // 1. Cek paket ujian yang sudah ada
     $existing = $pdo->query("SELECT kode FROM paket_ujian")->fetchAll(PDO::FETCH_COLUMN);
 
