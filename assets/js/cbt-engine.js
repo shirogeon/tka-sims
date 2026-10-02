@@ -1,4 +1,4 @@
-// assets/js/cbt-engine.js - Engine Interaktif CBT Pusmendik
+// assets/js/cbt-engine.js - Engine CBT Pusmendik ANBK dengan Kiosk Lockdown
 
 class CBTEngine {
     constructor(config) {
@@ -9,16 +9,115 @@ class CBTEngine {
         this.timerInterval = null;
         this.paletteData = [];
         this.currentSoalData = null;
-        this.answers = {};
-        this.isRaguMap = {};
-        this.fontSizeState = 'font-size-md';
+        this.violationCount = 0;
+        this.isSubmitting = false;
 
         this.init();
     }
 
     init() {
+        this.setupKioskLockdown();
         this.setupEventListeners();
         this.loadQuestion(this.currentNomor);
+    }
+
+    setupKioskLockdown() {
+        // 1. Mencegah Navigasi Tombol Back di Browser
+        history.pushState(null, null, location.href);
+        window.addEventListener('popstate', () => {
+            history.pushState(null, null, location.href);
+        });
+
+        // 2. Peringatan Reload / Menutup Halaman
+        window.addEventListener('beforeunload', (e) => {
+            if (!this.isSubmitting) {
+                e.preventDefault();
+                e.returnValue = 'Ujian sedang berlangsung! Jangan tinggalkan halaman ini.';
+            }
+        });
+
+        // 3. Blokir Klik Kanan
+        document.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            return false;
+        });
+
+        // 4. Blokir Tombol Inspect / Shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (
+                e.key === 'F12' ||
+                (e.ctrlKey && e.shiftKey && ['I', 'i', 'J', 'j', 'C', 'c'].includes(e.key)) ||
+                (e.ctrlKey && ['u', 'U', 's', 'S'].includes(e.key)) ||
+                (e.altKey && e.key === 'ArrowLeft')
+            ) {
+                e.preventDefault();
+                return false;
+            }
+        });
+
+        // 5. Deteksi Berpindah Tab atau Keluar Jendela Browser
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && !this.isSubmitting) {
+                this.recordViolation('Berpindah tab atau membuka aplikasi lain');
+            }
+        });
+
+        // 6. Deteksi Keluar Layar Penuh
+        const onFullscreenChange = () => {
+            const isFull = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement);
+            const overlay = document.getElementById('fullscreenLockOverlay');
+            const prompt = document.getElementById('startFullscreenPrompt');
+
+            // Jangan munculkan warning jika modal awal masih terbuka
+            if (!isFull && !this.isSubmitting && (!prompt || prompt.classList.contains('hidden'))) {
+                this.recordViolation('Keluar dari mode layar penuh (Fullscreen)');
+            } else if (isFull && overlay) {
+                overlay.classList.add('hidden');
+            }
+        };
+
+        document.addEventListener('fullscreenchange', onFullscreenChange);
+        document.addEventListener('webkitfullscreenchange', onFullscreenChange);
+
+        // 7. Handler Tombol Awal Masuk Fullscreen
+        const btnStart = document.getElementById('btnStartExamFullscreen');
+        if (btnStart) {
+            btnStart.addEventListener('click', () => {
+                this.requestFullscreen();
+                const prompt = document.getElementById('startFullscreenPrompt');
+                if (prompt) prompt.classList.add('hidden');
+            });
+        }
+
+        // 8. Handler Tombol Re-enter Fullscreen dari Overlay
+        const btnReenter = document.getElementById('btnReenterFullscreen');
+        if (btnReenter) {
+            btnReenter.addEventListener('click', () => {
+                this.requestFullscreen();
+                const overlay = document.getElementById('fullscreenLockOverlay');
+                if (overlay) overlay.classList.add('hidden');
+            });
+        }
+    }
+
+    requestFullscreen() {
+        const elem = document.documentElement;
+        if (elem.requestFullscreen) {
+            elem.requestFullscreen().catch(() => {});
+        } else if (elem.webkitRequestFullscreen) {
+            elem.webkitRequestFullscreen();
+        } else if (elem.msRequestFullscreen) {
+            elem.msRequestFullscreen();
+        }
+    }
+
+    recordViolation(reason) {
+        this.violationCount++;
+        const elCount = document.getElementById('violationCount');
+        if (elCount) elCount.textContent = this.violationCount;
+
+        const overlay = document.getElementById('fullscreenLockOverlay');
+        if (overlay) overlay.classList.remove('hidden');
     }
 
     setupEventListeners() {
@@ -43,33 +142,54 @@ class CBTEngine {
             this.handleRaguChange(e.target.checked);
         });
 
-        // Drawer Daftar Soal Toggle
-        const btnTogglePalette = document.getElementById('btnTogglePalette');
-        const paletteDrawer = document.getElementById('paletteDrawer');
+        // Modal Daftar Soal Khas ANBK
+        const btnOpenPalette = document.getElementById('btnOpenPalette');
+        const paletteModal = document.getElementById('paletteModal');
         const btnClosePalette = document.getElementById('btnClosePalette');
-        const paletteOverlay = document.getElementById('paletteOverlay');
 
-        const toggleDrawer = () => {
-            paletteDrawer.classList.toggle('open');
-            paletteOverlay.classList.toggle('hidden');
+        const openPalette = () => {
+            paletteModal.classList.remove('hidden');
         };
 
-        btnTogglePalette.addEventListener('click', toggleDrawer);
-        btnClosePalette.addEventListener('click', toggleDrawer);
-        paletteOverlay.addEventListener('click', toggleDrawer);
+        const closePalette = () => {
+            paletteModal.classList.add('hidden');
+        };
 
-        // Pengatur Ukuran Font (A- / A / A+)
+        btnOpenPalette.addEventListener('click', openPalette);
+        btnClosePalette.addEventListener('click', closePalette);
+
+        paletteModal.addEventListener('click', (e) => {
+            if (e.target === paletteModal) closePalette();
+        });
+
+        // Tombol Fullscreen Header
+        const btnToggleFs = document.getElementById('btnToggleFullscreen');
+        if (btnToggleFs) {
+            btnToggleFs.addEventListener('click', () => {
+                if (!document.fullscreenElement) {
+                    this.requestFullscreen();
+                } else {
+                    document.exitFullscreen().catch(() => {});
+                }
+            });
+        }
+
+        // Pengatur Ukuran Font
         document.querySelectorAll('.btn-font-size').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const size = e.currentTarget.dataset.size;
                 document.body.classList.remove('font-size-sm', 'font-size-md', 'font-size-lg');
                 document.body.classList.add(`font-size-${size}`);
-                document.querySelectorAll('.btn-font-size').forEach(b => b.classList.remove('bg-blue-100', 'text-blue-700', 'font-bold'));
-                e.currentTarget.classList.add('bg-blue-100', 'text-blue-700', 'font-bold');
+                document.querySelectorAll('.btn-font-size').forEach(b => {
+                    b.classList.remove('bg-blue-500', 'text-white', 'font-bold');
+                    b.classList.add('text-blue-200');
+                });
+                e.currentTarget.classList.add('bg-blue-500', 'text-white', 'font-bold');
+                e.currentTarget.classList.remove('text-blue-200');
             });
         });
 
-        // Modal Selesai
+        // Modal Selesai Ujian
         document.getElementById('btnCancelFinish').addEventListener('click', () => {
             document.getElementById('finishModal').classList.add('hidden');
         });
@@ -78,17 +198,16 @@ class CBTEngine {
             this.submitExam();
         });
 
-        // Dukungan Keyboard Escape untuk menutup Drawer & Modal (R-32)
+        // Tombol Escape Menutup Dialog
         window.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                const modal = document.getElementById('finishModal');
-                if (modal && !modal.classList.contains('hidden')) {
-                    modal.classList.add('hidden');
+                const finishM = document.getElementById('finishModal');
+                if (finishM && !finishM.classList.contains('hidden')) {
+                    finishM.classList.add('hidden');
                 }
-                const drawer = document.getElementById('paletteDrawer');
-                if (drawer && drawer.classList.contains('open')) {
-                    drawer.classList.remove('open');
-                    document.getElementById('paletteOverlay').classList.add('hidden');
+                const palM = document.getElementById('paletteModal');
+                if (palM && !palM.classList.contains('hidden')) {
+                    palM.classList.add('hidden');
                 }
             }
         });
@@ -107,14 +226,14 @@ class CBTEngine {
             const timerEl = document.getElementById('timerDisplay');
             if (timerEl) {
                 timerEl.textContent = formatted;
-                if (this.timerSeconds <= 300) { // Sisa 5 menit warna merah
-                    timerEl.classList.add('text-red-600', 'animate-pulse');
+                if (this.timerSeconds <= 300) {
+                    timerEl.classList.add('text-red-500', 'animate-pulse');
                 }
             }
 
             if (this.timerSeconds <= 0) {
                 clearInterval(this.timerInterval);
-                alert('Waktu ujian telah habis! Jawaban Anda akan otomatis dikirim.');
+                alert('Waktu ujian telah berakhir! Lembar jawaban akan otomatis dikirimkan.');
                 this.submitExam();
             } else {
                 this.timerSeconds--;
@@ -141,7 +260,6 @@ class CBTEngine {
             this.currentSoalData = data.soal;
             this.paletteData = data.palette;
 
-            // Timer init jika belum berjalan
             if (!this.timerInterval && data.sesi && data.sesi.sisa_detik !== undefined) {
                 this.startTimer(data.sesi.sisa_detik);
             }
@@ -151,13 +269,12 @@ class CBTEngine {
             this.renderPalette(data.palette);
             this.updateNavButtons();
 
-            // Set state ragu-ragu
             const chkRagu = document.getElementById('chkRagu');
             chkRagu.checked = !!data.soal.is_ragu;
 
         } catch (err) {
             console.error(err);
-            alert('Terjadi kesalahan koneksi saat memuat soal.');
+            alert('Terjadi kendala koneksi saat memuat soal.');
         } finally {
             this.showLoading(false);
         }
@@ -174,38 +291,34 @@ class CBTEngine {
             sourceEl.textContent = stimulus.sumber ? `Sumber: ${stimulus.sumber}` : '';
             sourceEl.classList.remove('hidden');
         } else {
-            titleEl.textContent = 'Petunjuk Pengerjaan';
+            titleEl.textContent = 'Petunjuk Butir Soal';
             container.innerHTML = `
-                <div class="p-6 text-slate-500 text-center">
-                    <p class="font-medium text-slate-700">Soal ini berdiri mandiri tanpa wacana panjang.</p>
-                    <p class="text-sm mt-1">Silakan langsung baca pertanyaan dan pilih jawaban terbaik di sisi kanan.</p>
+                <div class="p-8 text-slate-500 text-center">
+                    <p class="font-bold text-slate-700 text-base">Soal ini berdiri sendiri tanpa teks wacana panjang.</p>
+                    <p class="text-sm mt-2">Silakan cermati pertanyaan dan tentukan pilihan jawaban terbaik pada panel sebelah kanan.</p>
                 </div>
             `;
             sourceEl.classList.add('hidden');
         }
 
-        // Reset scroll ke atas tiap kali pindah soal
         document.getElementById('paneStimulus').scrollTop = 0;
     }
 
     renderQuestion(soal) {
-        document.getElementById('questionNumberBadge').textContent = `Soal No. ${soal.nomor_urut}`;
+        document.getElementById('questionNumberBadge').textContent = `SOAL NO. ${soal.nomor_urut}`;
         document.getElementById('subtesBadge').textContent = soal.subtes;
 
-        // Badge Tipe Soal
         const tipeLabels = {
             'pg_tunggal': 'Pilihan Ganda',
-            'pg_kompleks': 'Pilihan Ganda Kompleks (Bisa > 1 Jawaban)',
+            'pg_kompleks': 'Pilihan Ganda Kompleks',
             'matriks_bs': 'Pernyataan (Benar / Salah)',
             'menjodohkan': 'Menjodohkan',
             'isian_singkat': 'Isian Singkat'
         };
         document.getElementById('tipeSoalBadge').textContent = tipeLabels[soal.tipe_soal] || soal.tipe_soal;
 
-        // Teks Pertanyaan
         document.getElementById('questionText').innerHTML = soal.pertanyaan;
 
-        // Container Opsi
         const optionsContainer = document.getElementById('optionsContainer');
         optionsContainer.innerHTML = '';
 
@@ -236,7 +349,6 @@ class CBTEngine {
         const wrapper = document.createElement('div');
         wrapper.className = 'space-y-3';
         wrapper.setAttribute('role', 'radiogroup');
-        wrapper.setAttribute('aria-label', 'Pilihan Ganda');
 
         (opsiList || []).forEach(opt => {
             const item = document.createElement('div');
@@ -247,7 +359,7 @@ class CBTEngine {
             item.setAttribute('aria-checked', isSelected ? 'true' : 'false');
             item.innerHTML = `
                 <div class="option-badge">${opt.key}</div>
-                <div class="cbt-text flex-1 pt-0.5 text-slate-800">${opt.text}</div>
+                <div class="cbt-text flex-1 pt-0.5 text-slate-800 font-medium">${opt.text}</div>
             `;
 
             const selectThis = () => {
@@ -278,7 +390,6 @@ class CBTEngine {
         const wrapper = document.createElement('div');
         wrapper.className = 'space-y-3';
         wrapper.setAttribute('role', 'group');
-        wrapper.setAttribute('aria-label', 'Pilihan Ganda Kompleks');
         const selectedKeys = Array.isArray(currentAns) ? [...currentAns] : [];
 
         (opsiList || []).forEach(opt => {
@@ -292,7 +403,7 @@ class CBTEngine {
                 <div class="option-checkbox-badge">
                     ${isSelected ? '✓' : ''}
                 </div>
-                <div class="cbt-text flex-1 pt-0.5 text-slate-800">${opt.text}</div>
+                <div class="cbt-text flex-1 pt-0.5 text-slate-800 font-medium">${opt.text}</div>
             `;
 
             const toggleThis = () => {
@@ -331,12 +442,12 @@ class CBTEngine {
         const userState = (currentAns && typeof currentAns === 'object') ? { ...currentAns } : {};
 
         const table = document.createElement('table');
-        table.className = 'w-full cbt-matrix-table text-sm border-collapse bg-white rounded-lg shadow-sm';
+        table.className = 'w-full cbt-matrix-table text-sm border-collapse bg-white rounded-lg shadow-xs';
         
-        let theadHtml = `<thead><tr class="bg-slate-100 text-slate-700">
-            <th class="text-left font-semibold">Pernyataan</th>`;
+        let theadHtml = `<thead><tr class="bg-slate-100 text-slate-800">
+            <th class="text-left font-bold">Pernyataan</th>`;
         kolom.forEach(col => {
-            theadHtml += `<th class="text-center font-semibold w-24">${col}</th>`;
+            theadHtml += `<th class="text-center font-bold w-28">${col}</th>`;
         });
         theadHtml += `</tr></thead>`;
         table.innerHTML = theadHtml;
@@ -349,8 +460,8 @@ class CBTEngine {
                 const checked = (userState[p.id] === col) ? 'checked' : '';
                 tdHtml += `
                     <td class="text-center align-middle">
-                        <label class="cursor-pointer inline-flex items-center justify-center p-2">
-                            <input type="radio" name="matrix_${p.id}" value="${col}" ${checked} class="w-4 h-4 text-blue-600 focus:ring-blue-500">
+                        <label class="cursor-pointer inline-flex items-center justify-center p-2.5">
+                            <input type="radio" name="matrix_${p.id}" value="${col}" ${checked} class="w-5 h-5 text-blue-600 focus:ring-blue-500">
                         </label>
                     </td>
                 `;
@@ -380,7 +491,7 @@ class CBTEngine {
 
         opsiData.premis.forEach(p => {
             const card = document.createElement('div');
-            card.className = 'p-4 border rounded-lg bg-white shadow-xs border-slate-200';
+            card.className = 'p-4 border rounded-lg bg-white shadow-xs border-slate-300';
             
             let optionsHtml = `<option value="">-- Pilih Pasangan yang Tepat --</option>`;
             opsiData.target.forEach(t => {
@@ -389,12 +500,12 @@ class CBTEngine {
             });
 
             card.innerHTML = `
-                <div class="font-medium text-slate-800 mb-2 cbt-text flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-blue-600 inline-block"></span>
+                <div class="font-bold text-slate-800 mb-2 cbt-text flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-blue-700 inline-block"></span>
                     <span>${p.teks}</span>
                 </div>
                 <div>
-                    <select class="match-select w-full p-2.5 bg-slate-50 border border-slate-300 text-slate-800 text-sm rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <select class="match-select w-full p-2.5 bg-slate-50 border border-slate-300 text-slate-800 text-sm rounded-md focus:ring-2 focus:ring-blue-600">
                         ${optionsHtml}
                     </select>
                 </div>
@@ -413,11 +524,11 @@ class CBTEngine {
 
     renderIsianSingkat(container, currentAns) {
         const wrapper = document.createElement('div');
-        wrapper.className = 'p-6 bg-slate-50 border rounded-lg border-slate-200 max-w-lg';
+        wrapper.className = 'p-6 bg-slate-50 border rounded-lg border-slate-300 max-w-md';
         wrapper.innerHTML = `
-            <label class="block text-sm font-semibold text-slate-700 mb-2">Jawaban Anda:</label>
-            <input type="text" id="inputIsianSingkat" value="${currentAns || ''}" placeholder="Ketik jawaban di sini..." class="w-full px-4 py-2.5 text-base border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
-            <p class="text-xs text-slate-500 mt-2">Untuk angka desimal, Anda dapat menggunakan koma (,) atau titik (.).</p>
+            <label class="block text-sm font-bold text-slate-700 mb-2">Ketikkan Jawaban Anda:</label>
+            <input type="text" id="inputIsianSingkat" value="${currentAns || ''}" placeholder="Tulis jawaban..." class="w-full px-4 py-2.5 text-base border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 bg-white font-semibold">
+            <p class="text-xs text-slate-500 mt-2">Untuk bilangan desimal dapat memakai tanda koma (,) atau titik (.).</p>
         `;
 
         const input = wrapper.querySelector('#inputIsianSingkat');
@@ -426,38 +537,48 @@ class CBTEngine {
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(() => {
                 this.saveAnswer(e.target.value.trim());
-            }, 400);
+            }, 350);
         });
 
         container.appendChild(wrapper);
     }
 
+    // RENDER PALETTE MODAL KHAS ANBK PUSMENDIK
     renderPalette(palette) {
         const grid = document.getElementById('paletteGrid');
+        if (!grid) return;
         grid.innerHTML = '';
 
         palette.forEach(item => {
-            const btn = document.createElement('button');
-            btn.className = `palette-btn ${item.nomor === this.currentNomor ? 'active' : ''}`;
-            
+            const cell = document.createElement('button');
+            const isCurrent = (item.nomor === this.currentNomor);
+
+            let statusClass = 'unanswered';
             if (item.is_ragu) {
-                btn.classList.add('ragu');
+                statusClass = 'ragu';
             } else if (item.is_answered) {
-                btn.classList.add('answered');
+                statusClass = 'answered';
             }
 
-            btn.innerHTML = `
-                <span>${item.nomor}</span>
-                <span class="palette-badge">${item.preview_jawaban || ''}</span>
+            cell.className = `anbk-palette-cell ${statusClass} ${isCurrent ? 'current' : ''}`;
+            
+            let displayAns = '-';
+            if (item.is_answered && item.preview_jawaban) {
+                displayAns = item.preview_jawaban;
+            }
+
+            cell.innerHTML = `
+                <span class="cell-no">${item.nomor}</span>
+                <span class="cell-ans">${displayAns}</span>
             `;
 
-            btn.addEventListener('click', () => {
-                document.getElementById('paletteDrawer').classList.remove('open');
-                document.getElementById('paletteOverlay').classList.add('hidden');
+            cell.addEventListener('click', () => {
+                const modal = document.getElementById('paletteModal');
+                if (modal) modal.classList.add('hidden');
                 this.loadQuestion(item.nomor);
             });
 
-            grid.appendChild(btn);
+            grid.appendChild(cell);
         });
     }
 
@@ -466,17 +587,13 @@ class CBTEngine {
         const btnNext = document.getElementById('btnNext');
 
         btnPrev.disabled = (this.currentNomor <= 1);
-        btnPrev.classList.toggle('opacity-50', this.currentNomor <= 1);
-        btnPrev.classList.toggle('cursor-not-allowed', this.currentNomor <= 1);
 
         if (this.currentNomor >= this.totalSoal) {
-            btnNext.textContent = 'Selesai Ujian ✓';
-            btnNext.classList.remove('bg-blue-600', 'hover:bg-blue-700');
-            btnNext.classList.add('bg-emerald-600', 'hover:bg-emerald-700');
+            btnNext.innerHTML = `<span>SELESAI UJIAN</span> <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>`;
+            btnNext.className = 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs md:text-sm font-black px-6 py-2.5 rounded-lg flex items-center gap-2 transition shadow-xs';
         } else {
-            btnNext.textContent = 'Soal Berikutnya >';
-            btnNext.classList.remove('bg-emerald-600', 'hover:bg-emerald-700');
-            btnNext.classList.add('bg-blue-600', 'hover:bg-blue-700');
+            btnNext.innerHTML = `<span>SOAL BERIKUTNYA</span> <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"></path></svg>`;
+            btnNext.className = 'bg-[#1e40af] hover:bg-[#1d4ed8] active:bg-[#1e3a8a] text-white text-xs md:text-sm font-bold px-6 py-2.5 rounded-lg flex items-center gap-2 transition shadow-xs';
         }
     }
 
@@ -487,7 +604,7 @@ class CBTEngine {
 
         if (toast) {
             toast.textContent = 'Menyimpan...';
-            toast.className = 'text-xs text-amber-600 font-medium';
+            toast.className = 'text-xs text-amber-400 font-semibold px-2 py-1 bg-blue-950/60 rounded border border-blue-900';
         }
 
         try {
@@ -505,23 +622,21 @@ class CBTEngine {
             const result = await response.json();
             if (result.success) {
                 if (toast) {
-                    toast.textContent = `Tersimpan ✓ (${result.saved_at})`;
-                    toast.className = 'text-xs text-emerald-600 font-medium';
+                    toast.textContent = 'Tersimpan ✓';
+                    toast.className = 'text-xs text-emerald-400 font-semibold px-2 py-1 bg-blue-950/60 rounded border border-blue-900';
                 }
-                // Refresh status palette
                 this.refreshPaletteStatus(this.currentNomor, jawaban, isRagu);
             }
         } catch (err) {
             console.error('Auto-save error:', err);
             if (toast) {
-                toast.textContent = 'Gagal menyimpan!';
-                toast.className = 'text-xs text-red-600 font-medium';
+                toast.textContent = 'Koneksi lambat';
+                toast.className = 'text-xs text-red-400 font-semibold px-2 py-1 bg-blue-950/60 rounded border border-blue-900';
             }
         }
     }
 
     handleRaguChange(isRagu) {
-        // Ambil jawaban saat ini dan kirim ulang dengan status ragu baru
         if (this.currentSoalData) {
             const currentAns = this.currentSoalData.jawaban_tersimpan;
             this.saveAnswer(currentAns);
@@ -529,44 +644,45 @@ class CBTEngine {
     }
 
     refreshPaletteStatus(nomor, jawaban, isRagu) {
-        const buttons = document.querySelectorAll('.palette-btn');
-        if (buttons[nomor - 1]) {
-            const btn = buttons[nomor - 1];
-            btn.classList.remove('ragu', 'answered');
+        const cells = document.querySelectorAll('.anbk-palette-cell');
+        if (cells[nomor - 1]) {
+            const cell = cells[nomor - 1];
+            cell.classList.remove('ragu', 'answered', 'unanswered');
 
             const hasAnswer = (jawaban !== null && jawaban !== '' && (!Array.isArray(jawaban) || jawaban.length > 0));
 
             if (isRagu) {
-                btn.classList.add('ragu');
+                cell.classList.add('ragu');
             } else if (hasAnswer) {
-                btn.classList.add('answered');
+                cell.classList.add('answered');
+            } else {
+                cell.classList.add('unanswered');
             }
 
-            const badge = btn.querySelector('.palette-badge');
-            if (badge) {
+            const ansSpan = cell.querySelector('.cell-ans');
+            if (ansSpan) {
                 if (typeof jawaban === 'string') {
-                    badge.textContent = jawaban.toUpperCase();
+                    ansSpan.textContent = jawaban.toUpperCase();
                 } else if (Array.isArray(jawaban)) {
-                    badge.textContent = jawaban.join(',');
+                    ansSpan.textContent = (jawaban.length > 0) ? (jawaban.length === 1 ? jawaban[0] : '✓') : '-';
                 } else if (hasAnswer) {
-                    badge.textContent = '✓';
+                    ansSpan.textContent = '✓';
                 } else {
-                    badge.textContent = '';
+                    ansSpan.textContent = '-';
                 }
             }
         }
     }
 
     showFinishModal() {
-        // Hitung statistik jawaban dari palette
         let answered = 0;
         let ragu = 0;
         let empty = 0;
 
-        document.querySelectorAll('.palette-btn').forEach(btn => {
-            if (btn.classList.contains('ragu')) {
+        document.querySelectorAll('.anbk-palette-cell').forEach(cell => {
+            if (cell.classList.contains('ragu')) {
                 ragu++;
-            } else if (btn.classList.contains('answered')) {
+            } else if (cell.classList.contains('answered')) {
                 answered++;
             } else {
                 empty++;
@@ -581,10 +697,11 @@ class CBTEngine {
     }
 
     async submitExam() {
+        this.isSubmitting = true;
         const confirmBtn = document.getElementById('btnConfirmFinish');
         if (confirmBtn) {
             confirmBtn.disabled = true;
-            confirmBtn.textContent = 'Memproses Nilai...';
+            confirmBtn.textContent = 'Menyimpan & Menghitung Nilai...';
         }
 
         try {
@@ -599,11 +716,13 @@ class CBTEngine {
                 window.location.href = result.redirect;
             } else {
                 alert(result.message || 'Gagal mengirim ujian');
+                this.isSubmitting = false;
                 if (confirmBtn) confirmBtn.disabled = false;
             }
         } catch (err) {
             console.error(err);
-            alert('Terjadi kesalahan saat finalisasi nilai.');
+            alert('Terjadi kesalahan saat finalisasi ujian.');
+            this.isSubmitting = false;
             if (confirmBtn) confirmBtn.disabled = false;
         }
     }

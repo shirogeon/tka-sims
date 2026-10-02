@@ -1,21 +1,21 @@
-/* assets/css/style.css - Styling Khusus CBT Pusmendik */
+/* assets/css/style.css - Styling CBT Standar Pusmendik ANBK */
 
 :root {
+    --pusmendik-navy: #152e55;
     --pusmendik-blue: #1e3a8a;
     --pusmendik-primary: #2563eb;
-    --pusmendik-secondary: #0284c7;
     --pusmendik-yellow: #f59e0b;
-    --pusmendik-yellow-light: #fef3c7;
-    --pusmendik-green: #10b981;
-    --pusmendik-green-light: #d1fae5;
-    --pusmendik-gray-bg: #f8fafc;
+    --pusmendik-dark: #0f172a;
+    --pusmendik-gray-bg: #f1f5f9;
 }
 
 body {
     background-color: var(--pusmendik-gray-bg);
     color: #1e293b;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    user-select: none; /* Standar CBT untuk mencegah kecurangan */
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    user-select: none; /* Mencegah seleksi teks saat ujian */
+    -webkit-user-select: none;
+    -moz-user-select: none;
 }
 
 /* Custom Scrollbar */
@@ -37,20 +37,20 @@ body {
 /* Ukuran Font Dinamis (A- / A / A+) */
 body.font-size-sm .cbt-text {
     font-size: 0.875rem !important;
-    line-height: 1.5 !important;
+    line-height: 1.55 !important;
 }
 body.font-size-md .cbt-text {
     font-size: 1rem !important;
-    line-height: 1.6 !important;
+    line-height: 1.65 !important;
 }
 body.font-size-lg .cbt-text {
     font-size: 1.15rem !important;
-    line-height: 1.75 !important;
+    line-height: 1.8 !important;
 }
 
-/* Split Screen Layout */
+/* Split Screen Layout Mandiri Khas ANBK */
 .split-container {
-    height: calc(100vh - 65px - 65px); /* Header 65px + Footer 65px */
+    height: calc(100vh - 65px - 65px);
     display: flex;
     overflow: hidden;
 }
@@ -67,7 +67,7 @@ body.font-size-lg .cbt-text {
 .pane-stimulus {
     flex: 1 1 50%;
     overflow-y: auto;
-    border-right: 1px solid #e2e8f0;
+    border-right: 2px solid #e2e8f0;
     background: #ffffff;
 }
 
@@ -77,17 +77,23 @@ body.font-size-lg .cbt-text {
     background: #ffffff;
 }
 
-/* Opsi Jawaban Radio Pilihan Ganda CBT Pusmendik */
+/* Opsi Pilihan Ganda Radio CBT ANBK */
 .cbt-option-item {
     transition: all 0.15s ease-in-out;
-    border: 1px solid #cbd5e1;
+    border: 1.5px solid #cbd5e1;
     border-radius: 8px;
     padding: 12px 16px;
-    min-height: 48px; /* Memenuhi standar R-03 tap target 44px+ */
+    min-height: 48px;
     cursor: pointer;
     display: flex;
     align-items: flex-start;
-    gap: 12px;
+    gap: 14px;
+    background: #ffffff;
+}
+
+.cbt-option-item:hover {
+    background-color: #f8fafc;
+    border-color: #94a3b8;
 }
 
 .cbt-option-item:focus-visible {
@@ -95,146 +101,186 @@ body.font-size-lg .cbt-text {
     outline-offset: 2px;
 }
 
-.cbt-option-item:hover {
-    background-color: #f8fafc;
-    border-color: #cbd5e1;
-}
-
 .cbt-option-item.selected {
     background-color: #eff6ff;
-    border-color: #3b82f6;
-    box-shadow: 0 1px 3px rgba(59, 130, 246, 0.15);
+    border-color: #2563eb;
+    box-shadow: 0 1px 3px rgba(37, 99, 235, 0.15);
 }
 
 .option-badge {
-    width: 28px;
-    height: 28px;
-    min-width: 28px;
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: 700;
-    font-size: 0.875rem;
-    border: 2px solid #94a3b8;
-    color: #475569;
-    background: white;
+    font-weight: 800;
+    font-size: 0.9rem;
+    border: 2px solid #64748b;
+    color: #334155;
+    background: #ffffff;
+    transition: all 0.15s ease;
 }
 
 .cbt-option-item.selected .option-badge {
-    border-color: #2563eb;
-    background-color: #2563eb;
-    color: white;
+    border-color: #1e3a8a;
+    background-color: #1e3a8a;
+    color: #ffffff;
 }
 
-/* Opsi Checkbox untuk Pilihan Ganda Kompleks */
+/* Opsi Checkbox Pilihan Ganda Kompleks */
 .option-checkbox-badge {
-    width: 26px;
-    height: 26px;
-    min-width: 26px;
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
     border-radius: 6px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: 700;
-    border: 2px solid #94a3b8;
-    color: #475569;
-    background: white;
+    font-weight: 800;
+    border: 2px solid #64748b;
+    color: #334155;
+    background: #ffffff;
+    transition: all 0.15s ease;
 }
 
 .cbt-option-item.selected .option-checkbox-badge {
-    border-color: #2563eb;
-    background-color: #2563eb;
-    color: white;
+    border-color: #1e3a8a;
+    background-color: #1e3a8a;
+    color: #ffffff;
 }
 
-/* Matriks Benar / Salah Table */
+/* Matriks Tabel Benar / Salah */
 .cbt-matrix-table th, .cbt-matrix-table td {
-    padding: 10px 14px;
-    border: 1px solid #e2e8f0;
+    padding: 12px 14px;
+    border: 1px solid #cbd5e1;
 }
 
 .cbt-matrix-table tr:hover {
     background-color: #f8fafc;
 }
 
-/* Drawer / Palette Nomor Soal */
-.palette-drawer {
+/* KOTAK NOMOR DAFTAR SOAL KHAS ANBK PUSMENDIK */
+.anbk-modal-backdrop {
     position: fixed;
-    top: 65px;
-    right: -360px;
-    width: 340px;
-    height: calc(100vh - 65px);
-    background: white;
-    box-shadow: -4px 0 15px rgba(0, 0, 0, 0.1);
-    transition: right 0.25s ease-in-out;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(2px);
     z-index: 50;
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
 }
 
-.palette-drawer.open {
-    right: 0;
+.anbk-palette-card {
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.2);
+    width: 100%;
+    max-width: 480px;
+    overflow: hidden;
+    border: 1px solid #cbd5e1;
+    animation: zoomIn 0.2s ease-out;
 }
 
-.palette-grid {
+@keyframes zoomIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.anbk-palette-grid {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    gap: 8px;
-    padding: 16px;
-    overflow-y: auto;
+    gap: 12px;
+    padding: 20px;
+    justify-items: center;
 }
 
-.palette-btn {
-    aspect-ratio: 1;
-    border: 1px solid #cbd5e1;
-    border-radius: 6px;
+.anbk-palette-cell {
+    width: 62px;
+    height: 62px;
+    border: 2px solid #94a3b8;
+    border-radius: 8px;
+    position: relative;
+    cursor: pointer;
+    background: #ffffff;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+    outline: none;
+}
+
+.anbk-palette-cell:hover {
+    border-color: #2563eb;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.anbk-palette-cell:focus-visible {
+    outline: 2.5px solid #2563eb;
+    outline-offset: 2px;
+}
+
+/* Nomor Kecil di Pojok Kiri Atas */
+.cell-no {
+    position: absolute;
+    top: 3px;
+    left: 6px;
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1;
+}
+
+/* Huruf Pilihan Jawaban di Tengah */
+.cell-ans {
+    font-size: 18px;
+    font-weight: 900;
+    margin-top: 6px;
+    line-height: 1;
+}
+
+/* Status Belum Dijawab (Putih) */
+.anbk-palette-cell.unanswered {
+    background: #ffffff;
+    border-color: #cbd5e1;
+    color: #64748b;
+}
+
+/* Status Sudah Dijawab (Hitam / Navy Pekat Khas ANBK) */
+.anbk-palette-cell.answered {
+    background: #1e293b !important;
+    border-color: #0f172a !important;
+    color: #ffffff !important;
+}
+
+/* Status Ragu-Ragu (Kuning Terang Khas ANBK) */
+.anbk-palette-cell.ragu {
+    background: #f59e0b !important;
+    border-color: #d97706 !important;
+    color: #000000 !important;
+}
+
+/* Indikator Soal Sedang Dibuka */
+.anbk-palette-cell.current {
+    box-shadow: 0 0 0 3px #3b82f6, 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+/* Peringatan Keluar Layar Penuh (Lockdown Overlay) */
+.fullscreen-lock-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.96);
+    z-index: 9999;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
-    font-size: 0.85rem;
-    font-weight: 600;
-    transition: all 0.15s ease;
-    background: #f8fafc;
-    color: #334155;
-    position: relative;
-}
-
-.palette-btn:hover {
-    border-color: #2563eb;
-    transform: translateY(-1px);
-}
-
-.palette-btn.active {
-    outline: 2.5px solid #2563eb;
-    outline-offset: 1px;
-}
-
-.palette-btn.answered {
-    background: #2563eb;
-    color: white;
-    border-color: #1d4ed8;
-}
-
-.palette-btn.ragu {
-    background: #f59e0b !important;
-    color: white !important;
-    border-color: #d97706 !important;
-}
-
-.palette-badge {
-    font-size: 0.65rem;
-    font-weight: 700;
-    margin-top: 1px;
-}
-
-/* Animasi Fade In */
-.fade-in {
-    animation: fadeIn 0.2s ease-in-out;
-}
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(4px); }
-    to { opacity: 1; transform: translateY(0); }
+    padding: 24px;
+    text-align: center;
+    color: #ffffff;
+    backdrop-filter: blur(4px);
 }
